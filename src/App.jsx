@@ -2,11 +2,9 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './lib/supabase';
-// ADDED QrCode icon here
 import { Trophy, ChevronUp, CheckCircle2, Activity, Vote, Layers, Search, QrCode } from 'lucide-react';
 import fpPromise from '@fingerprintjs/fingerprintjs';
 import clsx from 'clsx';
-// ADDED QRCode generator
 import { QRCodeSVG } from 'qrcode.react';
 
 // --- MAIN APP COMPONENT (ROUTING) ---
@@ -82,8 +80,6 @@ function VotePage() {
   const [loading, setLoading] = useState(true);
   const [visitorId, setVisitorId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // NEW: State to track which team's QR code is currently being viewed
   const [activeQrTeam, setActiveQrTeam] = useState(null);
   
   const [searchParams] = useSearchParams();
@@ -129,9 +125,14 @@ function VotePage() {
     }
   };
 
-  const filteredTeams = teams.filter(team =>
-    team.project_title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // FILTER & SORT LOGIC: Filters by search query, then forces the selected team to the top
+  const displayTeams = teams
+    .filter(team => team.project_title.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      if (a.registration_number === selectedTeam) return -1;
+      if (b.registration_number === selectedTeam) return 1;
+      return 0;
+    });
 
   if (loading) return <LoadingScreen />;
 
@@ -172,7 +173,7 @@ function VotePage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredTeams.map((team) => {
+        {displayTeams.map((team) => {
           const isTargeted = team.registration_number === selectedTeam;
 
           return (
@@ -200,7 +201,6 @@ function VotePage() {
                     </span>
                   </div>
                   
-                  {/* NEW: QR Code Trigger Button */}
                   <button 
                     onClick={() => setActiveQrTeam(team)}
                     className="p-1.5 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded-md transition-colors"
@@ -236,14 +236,14 @@ function VotePage() {
           );
         })}
         
-        {filteredTeams.length === 0 && !loading && (
+        {displayTeams.length === 0 && !loading && (
           <div className="col-span-full py-12 text-center text-zinc-500">
             No projects found matching "{searchQuery}"
           </div>
         )}
       </div>
 
-      {/* NEW: QR Code Modal */}
+      {/* QR Code Modal */}
       <AnimatePresence>
         {activeQrTeam && (
           <motion.div
@@ -264,10 +264,9 @@ function VotePage() {
                 {activeQrTeam.project_title}
               </h3>
               <p className="text-zinc-500 text-sm mb-6">
-                Scan to vote directly for Team {activeQrTeam.project_title}
+                Scan to vote directly for Team {activeQrTeam.registration_number}
               </p>
               
-              {/* QR Code Container (White background so scanners can read it easily) */}
               <div className="bg-white p-4 rounded-xl inline-block mb-6 shadow-sm">
                 <QRCodeSVG 
                   value={`${window.location.origin}/?team=${activeQrTeam.registration_number}`} 
