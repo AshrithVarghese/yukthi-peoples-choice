@@ -127,14 +127,14 @@ function VotePage() {
     <main className="max-w-6xl mx-auto px-6 py-12">
       <header className="mb-12 text-center space-y-3">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-zinc-100">
-          Cast Your Vote
+          #Cast Your Vote for Yukthi Peoples Choice Award
         </h1>
         <p className="text-zinc-400 max-w-xl mx-auto text-base">
-          Support your favorite project at the Yukthi Expo. You are permitted one vote per device.
+          Support your favorite project at the Yukthi Project Expo. Every vote matters!
         </p>
       </header>
 
-      {hasVoted && (
+      {hasVoted && (+
         <motion.div 
           initial={{ opacity: 0, y: -10 }} 
           animate={{ opacity: 1, y: 0 }} 
