@@ -2,16 +2,19 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './lib/supabase';
-import { Trophy, ChevronUp, CheckCircle2, Activity, Vote, Layers } from 'lucide-react';
+// ADDED QrCode icon here
+import { Trophy, ChevronUp, CheckCircle2, Activity, Vote, Layers, Search, QrCode } from 'lucide-react';
 import fpPromise from '@fingerprintjs/fingerprintjs';
 import clsx from 'clsx';
+// ADDED QRCode generator
+import { QRCodeSVG } from 'qrcode.react';
 
 // --- MAIN APP COMPONENT (ROUTING) ---
 export default function App() {
   return (
     <BrowserRouter>
       {/* Enterprise dark background (Zinc-950) - Solid, no blurry neon blobs */}
-      <div className="min-h-screen bg-[#09090B] text-zinc-100 font-sans selection:bg-blue-500/30">
+      <div className="min-h-screen bg-[#09090B] text-zinc-100 font-sans selection:bg-blue-500/30 relative">
         
         {/* Navigation Bar - Structural, subtle bottom border, blurred backing */}
         <nav className="bg-[#09090B]/80 backdrop-blur-md border-b border-zinc-800/80 sticky top-0 z-50">
@@ -44,32 +47,32 @@ export default function App() {
 function NavLinks() {
   const location = useLocation();
   
-  // return (
-  //   <div className="flex p-1 bg-zinc-900 border border-zinc-800/80 rounded-lg shadow-inner">
-  //     <Link 
-  //       to="/" 
-  //       className={clsx(
-  //         "px-6 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-all duration-200",
-  //         location.pathname === "/" 
-  //           ? "bg-[#18181B] text-zinc-100 shadow-sm ring-1 ring-white/5" 
-  //           : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
-  //       )}
-  //     >
-  //       <Vote size={18} /> Vote
-  //     </Link>
-  //     <Link 
-  //       to="/livestandings" 
-  //       className={clsx(
-  //         "px-6 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-all duration-200",
-  //         location.pathname === "/livestandings" 
-  //           ? "bg-[#18181B] text-zinc-100 shadow-sm ring-1 ring-white/5" 
-  //           : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
-  //       )}
-  //     >
-  //       <Trophy size={18} /> Standings
-  //     </Link>
-  //   </div>
-  // );
+  return (
+    <div className="flex p-1 bg-zinc-900 border border-zinc-800/80 rounded-lg shadow-inner">
+      <Link 
+        to="/" 
+        className={clsx(
+          "px-6 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-all duration-200",
+          location.pathname === "/" 
+            ? "bg-[#18181B] text-zinc-100 shadow-sm ring-1 ring-white/5" 
+            : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+        )}
+      >
+        <Vote size={18} /> Vote
+      </Link>
+      <Link 
+        to="/livestandings" 
+        className={clsx(
+          "px-6 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-all duration-200",
+          location.pathname === "/livestandings" 
+            ? "bg-[#18181B] text-zinc-100 shadow-sm ring-1 ring-white/5" 
+            : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+        )}
+      >
+        <Trophy size={18} /> Standings
+      </Link>
+    </div>
+  );
 }
 
 // --- PAGE 1: VOTING PAGE (/) ---
@@ -78,6 +81,11 @@ function VotePage() {
   const [hasVoted, setHasVoted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [visitorId, setVisitorId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // NEW: State to track which team's QR code is currently being viewed
+  const [activeQrTeam, setActiveQrTeam] = useState(null);
+  
   const [searchParams] = useSearchParams();
   const selectedTeam = searchParams.get('team');
 
@@ -121,11 +129,15 @@ function VotePage() {
     }
   };
 
+  const filteredTeams = teams.filter(team =>
+    team.project_title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (loading) return <LoadingScreen />;
 
   return (
-    <main className="max-w-6xl mx-auto px-6 py-12">
-      <header className="mb-12 text-center space-y-3">
+    <main className="max-w-6xl mx-auto px-6 py-12 relative">
+      <header className="mb-10 text-center space-y-3">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-zinc-100">
           #Cast Your Vote for Yukthi Peoples Choice Award
         </h1>
@@ -134,7 +146,21 @@ function VotePage() {
         </p>
       </header>
 
-      {hasVoted && (+
+      {/* Search Bar */}
+      <div className="mb-10 max-w-md mx-auto relative group">
+        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+          <Search size={18} className="text-zinc-500 group-focus-within:text-blue-500 transition-colors" />
+        </div>
+        <input
+          type="text"
+          placeholder="Search projects by title..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-10 pr-4 py-3 bg-[#121214] border border-zinc-800 rounded-xl text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 transition-all shadow-sm"
+        />
+      </div>
+
+      {hasVoted && (
         <motion.div 
           initial={{ opacity: 0, y: -10 }} 
           animate={{ opacity: 1, y: 0 }} 
@@ -146,7 +172,7 @@ function VotePage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {teams.map((team) => {
+        {filteredTeams.map((team) => {
           const isTargeted = team.registration_number === selectedTeam;
 
           return (
@@ -165,13 +191,25 @@ function VotePage() {
               
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded bg-zinc-800/80 text-zinc-300 uppercase tracking-wide border border-zinc-700/50">
-                    {team.department}
-                  </span>
-                  <span className="text-sm text-zinc-500 font-mono">
-                    {team.registration_number}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded bg-zinc-800/80 text-zinc-300 uppercase tracking-wide border border-zinc-700/50">
+                      {team.registration_number}
+                    </span>
+                    <span className="text-sm text-zinc-500 font-mono">
+                      #{team.department}
+                    </span>
+                  </div>
+                  
+                  {/* NEW: QR Code Trigger Button */}
+                  <button 
+                    onClick={() => setActiveQrTeam(team)}
+                    className="p-1.5 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded-md transition-colors"
+                    title="Show Voting QR Code"
+                  >
+                    <QrCode size={18} />
+                  </button>
                 </div>
+                
                 <h3 className="font-semibold text-lg text-zinc-100 leading-snug">
                   {team.project_title}
                 </h3>
@@ -197,7 +235,58 @@ function VotePage() {
             </div>
           );
         })}
+        
+        {filteredTeams.length === 0 && !loading && (
+          <div className="col-span-full py-12 text-center text-zinc-500">
+            No projects found matching "{searchQuery}"
+          </div>
+        )}
       </div>
+
+      {/* NEW: QR Code Modal */}
+      <AnimatePresence>
+        {activeQrTeam && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setActiveQrTeam(null)}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#121214] border border-zinc-800 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl relative"
+            >
+              <h3 className="text-xl font-bold text-zinc-100 mb-1 leading-tight">
+                {activeQrTeam.project_title}
+              </h3>
+              <p className="text-zinc-500 text-sm mb-6">
+                Scan to vote directly for Team {activeQrTeam.project_title}
+              </p>
+              
+              {/* QR Code Container (White background so scanners can read it easily) */}
+              <div className="bg-white p-4 rounded-xl inline-block mb-6 shadow-sm">
+                <QRCodeSVG 
+                  value={`${window.location.origin}/?team=${activeQrTeam.registration_number}`} 
+                  size={200} 
+                  level="H" 
+                  includeMargin={false} 
+                />
+              </div>
+              
+              <button 
+                onClick={() => setActiveQrTeam(null)} 
+                className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-100 rounded-lg font-medium transition-colors"
+              >
+                Close
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
@@ -248,7 +337,6 @@ function LeaderboardPage() {
             const isSecond = index === 1;
             const isThird = index === 2;
 
-            // Professional distinct rank styling matching enterprise dark mode
             let rankBadge = "bg-zinc-800/50 text-zinc-400 border border-zinc-800";
             let cardStyle = "bg-[#121214] border-zinc-800/80";
             
@@ -270,7 +358,6 @@ function LeaderboardPage() {
                 layout
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
-                // Firm, standard Material spring (snappy, highly professional, no bouncy cartoon feel)
                 transition={{ 
                   layout: { type: "spring", stiffness: 350, damping: 30 },
                   opacity: { duration: 0.2 }
@@ -300,8 +387,8 @@ function LeaderboardPage() {
                   <div className="text-right shrink-0 pl-4 border-l border-zinc-800">
                     <motion.div 
                       key={team.vote}
-                      initial={{ scale: 1.1, color: '#3B82F6' }} // Blue flash on update
-                      animate={{ scale: 1, color: '#F4F4F5' }} // Back to zinc-100
+                      initial={{ scale: 1.1, color: '#3B82F6' }}
+                      animate={{ scale: 1, color: '#F4F4F5' }}
                       className="text-2xl sm:text-3xl font-bold tabular-nums tracking-tight text-zinc-100"
                     >
                       {team.vote || 0}
