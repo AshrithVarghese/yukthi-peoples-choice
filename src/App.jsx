@@ -45,32 +45,32 @@ export default function App() {
 function NavLinks() {
   const location = useLocation();
   
-  return (
-    <div className="flex p-1 bg-zinc-900 border border-zinc-800/80 rounded-lg shadow-inner">
-      <Link 
-        to="/" 
-        className={clsx(
-          "px-6 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-all duration-200",
-          location.pathname === "/" 
-            ? "bg-[#18181B] text-zinc-100 shadow-sm ring-1 ring-white/5" 
-            : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
-        )}
-      >
-        <Vote size={18} /> Vote
-      </Link>
-      <Link 
-        to="/livestandings" 
-        className={clsx(
-          "px-6 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-all duration-200",
-          location.pathname === "/livestandings" 
-            ? "bg-[#18181B] text-zinc-100 shadow-sm ring-1 ring-white/5" 
-            : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
-        )}
-      >
-        <Trophy size={18} /> Standings
-      </Link>
-    </div>
-  );
+  // return (
+  //   <div className="flex p-1 bg-zinc-900 border border-zinc-800/80 rounded-lg shadow-inner">
+  //     <Link 
+  //       to="/" 
+  //       className={clsx(
+  //         "px-6 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-all duration-200",
+  //         location.pathname === "/" 
+  //           ? "bg-[#18181B] text-zinc-100 shadow-sm ring-1 ring-white/5" 
+  //           : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+  //       )}
+  //     >
+  //       <Vote size={18} /> Vote
+  //     </Link>
+  //     <Link 
+  //       to="/livestandings" 
+  //       className={clsx(
+  //         "px-6 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-all duration-200",
+  //         location.pathname === "/livestandings" 
+  //           ? "bg-[#18181B] text-zinc-100 shadow-sm ring-1 ring-white/5" 
+  //           : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+  //       )}
+  //     >
+  //       <Trophy size={18} /> Standings
+  //     </Link>
+  //   </div>
+  // );
 }
 
 // --- PAGE 1: VOTING PAGE (/) ---
