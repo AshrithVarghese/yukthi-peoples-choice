@@ -190,7 +190,7 @@ function VotePage() {
           />
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-2">
+        {/* <div className="flex flex-wrap items-center justify-center gap-2">
           {availableTracks.map(track => (
             <button
               key={track}
@@ -211,7 +211,7 @@ function VotePage() {
               {track}
             </button>
           ))}
-        </div>
+        </div> */}
       </div>
 
       {votedTracks.includes(activeTrackFilter) && (
