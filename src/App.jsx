@@ -11,24 +11,16 @@ import { QRCodeSVG } from 'qrcode.react';
 export default function App() {
   return (
     <BrowserRouter>
-      {/* Enterprise dark background (Zinc-950) - Solid, no blurry neon blobs */}
       <div className="min-h-screen bg-[#09090B] text-zinc-100 font-sans selection:bg-blue-500/30 relative">
-        
-        {/* Navigation Bar - Structural, subtle bottom border, blurred backing */}
         <nav className="bg-[#09090B]/80 backdrop-blur-md border-b border-zinc-800/80 sticky top-0 z-50">
           <div className="max-w-5xl mx-auto px-6 py-6 flex flex-col items-center justify-center gap-5">
-            
-            {/* Logo & Title */}
             <div className="flex items-center gap-3 font-bold text-2xl tracking-tight text-zinc-100">
               <div className="w-10 h-10 rounded-lg text-white bg-blue-600 flex items-center justify-center shadow-sm shrink-0">
                 <Layers size={20} strokeWidth={2.5} />
               </div>
               Yukthi Project Expo
             </div>
-
-            {/* Nav Buttons - Segmented Control Style */}
             <NavLinks />
-            
           </div>
         </nav>
 
@@ -41,7 +33,7 @@ export default function App() {
   );
 }
 
-// Separate component for nav links to handle active states smoothly
+// Separate component for nav links
 function NavLinks() {
   const location = useLocation();
   
@@ -76,14 +68,20 @@ function NavLinks() {
 // --- PAGE 1: VOTING PAGE (/) ---
 function VotePage() {
   const [teams, setTeams] = useState([]);
-  const [hasVoted, setHasVoted] = useState(false);
+  const [votedTracks, setVotedTracks] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [visitorId, setVisitorId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  const [availableTracks, setAvailableTracks] = useState([]);
+  const [activeTrackFilter, setActiveTrackFilter] = useState('');
+  
   const [activeQrTeam, setActiveQrTeam] = useState(null);
   
-  const [searchParams] = useSearchParams();
+  // ADDED: setSearchParams to update URL, and selectedTrack to read the URL
+  const [searchParams, setSearchParams] = useSearchParams();
   const selectedTeam = searchParams.get('team');
+  const selectedTrack = searchParams.get('track');
 
   useEffect(() => {
     const initFingerprint = async () => {
@@ -93,44 +91,75 @@ function VotePage() {
       
       const { data } = await supabase
         .from('device_votes')
-        .select('fingerprint')
-        .eq('fingerprint', result.visitorId)
-        .single();
+        .select('track')
+        .eq('fingerprint', result.visitorId);
         
-      if (data) setHasVoted(true);
+      if (data) {
+        setVotedTracks(data.map(vote => String(vote.track)));
+      }
     };
 
     const fetchTeams = async () => {
       const { data } = await supabase.from('teams').select('*').order('department').order('team_number');
-      if (data) setTeams(data);
+      if (data) {
+        setTeams(data);
+        
+        const uniqueTracks = [...new Set(data.map(t => String(t.track)).filter(Boolean))].sort();
+        setAvailableTracks(uniqueTracks);
+        
+        const targetedTeam = selectedTeam ? data.find(t => String(t.registration_number) === String(selectedTeam)) : null;
+        
+        if (targetedTeam && targetedTeam.track) {
+          setActiveTrackFilter(String(targetedTeam.track));
+        } else if (selectedTrack && uniqueTracks.includes(String(selectedTrack))) {
+          // ADDED: Check URL for track first
+          setActiveTrackFilter(String(selectedTrack));
+        } else if (uniqueTracks.length > 0) {
+          setActiveTrackFilter(uniqueTracks[0]);
+        }
+      }
       setLoading(false);
     };
 
     initFingerprint();
     fetchTeams();
-  }, []);
+  }, [selectedTeam, selectedTrack]);
 
-  const handleVote = async (teamId) => {
-    if (hasVoted || !visitorId) return;
+  const handleVote = async (team) => {
+    const trackStr = String(team.track);
 
-    setHasVoted(true);
+    if (votedTracks.includes(trackStr) || !visitorId) return;
+
+    setVotedTracks(prev => [...prev, trackStr]);
+
     const { data: success, error } = await supabase.rpc('cast_secure_vote', { 
-      p_team_id: teamId,
-      p_fingerprint: visitorId
+      p_team_id: team.id,
+      p_fingerprint: visitorId,
+      p_track: trackStr 
     });
     
-    if (error || !success) {
-      setHasVoted(false);
-      alert("It looks like a vote has already been cast from this device.");
+    if (error) {
+      console.error("Supabase RPC Error:", error);
+      setVotedTracks(prev => prev.filter(t => t !== trackStr));
+      alert(`Database Error: ${error.message}. Please check your Supabase function.`);
+      return;
+    }
+
+    if (success === false) {
+      setVotedTracks(prev => prev.filter(t => t !== trackStr));
+      alert(`It looks like a vote has already been cast for ${trackStr} from this device.`);
     }
   };
 
-  // FILTER & SORT LOGIC: Filters by search query, then forces the selected team to the top
   const displayTeams = teams
-    .filter(team => team.project_title.toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter(team => {
+      const matchesSearch = team.project_title.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesTrack = String(team.track) === activeTrackFilter;
+      return matchesSearch && matchesTrack;
+    })
     .sort((a, b) => {
-      if (a.registration_number === selectedTeam) return -1;
-      if (b.registration_number === selectedTeam) return 1;
+      if (String(a.registration_number) === String(selectedTeam)) return -1;
+      if (String(b.registration_number) === String(selectedTeam)) return 1;
       return 0;
     });
 
@@ -143,50 +172,75 @@ function VotePage() {
           #Cast Your Vote for Yukthi Peoples Choice Award
         </h1>
         <p className="text-zinc-400 max-w-xl mx-auto text-base">
-          Support your favorite project at the Yukthi Project Expo. Every vote matters!
+          Support your favorite project at the Yukthi Project Expo. You can vote for one project per track!
         </p>
       </header>
 
-      {/* Search Bar */}
-      <div className="mb-10 max-w-md mx-auto relative group">
-        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-          <Search size={18} className="text-zinc-500 group-focus-within:text-blue-500 transition-colors" />
+      <div className="mb-10 max-w-2xl mx-auto space-y-5">
+        <div className="relative group">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+            <Search size={18} className="text-zinc-500 group-focus-within:text-blue-500 transition-colors" />
+          </div>
+          <input
+            type="text"
+            placeholder={`Search projects in ${activeTrackFilter || 'this track'}...`}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 bg-[#121214] border border-zinc-800 rounded-xl text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 transition-all shadow-sm"
+          />
         </div>
-        <input
-          type="text"
-          placeholder="Search projects by title..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 bg-[#121214] border border-zinc-800 rounded-xl text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 transition-all shadow-sm"
-        />
+
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {availableTracks.map(track => (
+            <button
+              key={track}
+              onClick={() => {
+                // ADDED: Set state and strictly update URL params
+                setActiveTrackFilter(track);
+                const newParams = new URLSearchParams(searchParams);
+                newParams.set('track', track);
+                setSearchParams(newParams, { replace: true });
+              }}
+              className={clsx(
+                "px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 border",
+                activeTrackFilter === track
+                  ? "bg-zinc-800 text-zinc-100 border-zinc-700 shadow-sm"
+                  : "bg-transparent text-zinc-500 border-transparent hover:text-zinc-300 hover:bg-zinc-900/50"
+              )}
+            >
+              {track}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {hasVoted && (
+      {votedTracks.includes(activeTrackFilter) && (
         <motion.div 
           initial={{ opacity: 0, y: -10 }} 
           animate={{ opacity: 1, y: 0 }} 
           className="mb-10 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center justify-center gap-3 text-emerald-400 font-medium max-w-2xl mx-auto"
         >
           <CheckCircle2 size={20} className="text-emerald-500" />
-          Your vote has been securely recorded.
+          You have securely cast your vote in {activeTrackFilter}.
         </motion.div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {displayTeams.map((team) => {
-          const isTargeted = team.registration_number === selectedTeam;
+          const isTargeted = String(team.registration_number) === String(selectedTeam);
+          const isTrackVoted = votedTracks.includes(String(team.track));
 
           return (
             <div
               key={team.id}
               className={clsx(
                 "group relative overflow-hidden p-6 rounded-xl border bg-[#121214] flex flex-col h-full transition-colors duration-200",
-                isTargeted && !hasVoted 
+                isTargeted && !isTrackVoted 
                   ? "border-blue-500/50 ring-1 ring-blue-500/30 shadow-[0_0_15px_-3px_rgba(59,130,246,0.1)]" 
                   : "border-zinc-800 hover:border-zinc-700"
               )}
             >
-              {isTargeted && !hasVoted && (
+              {isTargeted && !isTrackVoted && (
                 <div className="absolute top-0 inset-x-0 h-1 bg-blue-600" />
               )}
               
@@ -210,26 +264,26 @@ function VotePage() {
                   </button>
                 </div>
                 
-                <h3 className="font-semibold text-lg text-zinc-100 leading-snug">
+                <h3 className="font-semibold text-lg text-zinc-100 leading-snug mb-2">
                   {team.project_title}
                 </h3>
               </div>
 
               <div className="mt-6 pt-6 border-t border-zinc-800/60">
                 <button
-                  onClick={() => handleVote(team.id)}
-                  disabled={hasVoted}
+                  onClick={() => handleVote(team)}
+                  disabled={isTrackVoted}
                   className={clsx(
                     "w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-colors duration-200",
-                    hasVoted
+                    isTrackVoted
                       ? "bg-zinc-900 border border-zinc-800 text-zinc-600 cursor-not-allowed"
                       : isTargeted
                         ? "bg-blue-600 hover:bg-blue-500 text-white"
                         : "bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:text-white"
                   )}
                 >
-                  {hasVoted ? 'Vote Submitted' : 'Vote for Project'}
-                  {!hasVoted && <ChevronUp size={16} strokeWidth={2.5} />}
+                  {isTrackVoted ? `Vote casted` : `Vote`}
+                  {!isTrackVoted && <ChevronUp size={16} strokeWidth={2.5} />}
                 </button>
               </div>
             </div>
@@ -238,12 +292,11 @@ function VotePage() {
         
         {displayTeams.length === 0 && !loading && (
           <div className="col-span-full py-12 text-center text-zinc-500">
-            No projects found matching "{searchQuery}"
+            No projects found matching your criteria in {activeTrackFilter}.
           </div>
         )}
       </div>
 
-      {/* QR Code Modal */}
       <AnimatePresence>
         {activeQrTeam && (
           <motion.div
@@ -294,11 +347,29 @@ function VotePage() {
 function LeaderboardPage() {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  const [availableTracks, setAvailableTracks] = useState([]);
+  const [activeTrackFilter, setActiveTrackFilter] = useState('');
+
+  // ADDED: To read and set the ?track parameter on the standings page
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedTrack = searchParams.get('track');
 
   useEffect(() => {
     const fetchTeams = async () => {
       const { data } = await supabase.from('teams').select('*').order('vote', { ascending: false });
-      if (data) setTeams(data);
+      if (data) {
+        setTeams(data);
+        const uniqueTracks = [...new Set(data.map(t => String(t.track)).filter(Boolean))].sort();
+        setAvailableTracks(uniqueTracks);
+        
+        // ADDED: Check URL for track first
+        if (selectedTrack && uniqueTracks.includes(String(selectedTrack))) {
+          setActiveTrackFilter(String(selectedTrack));
+        } else if (uniqueTracks.length > 0) {
+          setActiveTrackFilter(uniqueTracks[0]);
+        }
+      }
       setLoading(false);
     };
 
@@ -315,13 +386,15 @@ function LeaderboardPage() {
       .subscribe();
 
     return () => supabase.removeChannel(channel);
-  }, []);
+  }, [selectedTrack]);
+
+  const displayTeams = teams.filter(t => String(t.track) === activeTrackFilter);
 
   if (loading) return <LoadingScreen />;
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-12">
-      <header className="mb-10 text-center space-y-3">
+      <header className="mb-8 text-center space-y-3">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-zinc-100 flex items-center justify-center gap-3">
           <Trophy size={32} className="text-amber-500" strokeWidth={2.5} />
           Live Standings
@@ -329,9 +402,32 @@ function LeaderboardPage() {
         <p className="text-zinc-500 font-medium">Real-time voting results</p>
       </header>
 
+      <div className="mb-10 flex flex-wrap items-center justify-center gap-2">
+        {availableTracks.map(track => (
+          <button
+            key={track}
+            onClick={() => {
+              // ADDED: Set state and strictly update URL params
+              setActiveTrackFilter(track);
+              const newParams = new URLSearchParams(searchParams);
+              newParams.set('track', track);
+              setSearchParams(newParams, { replace: true });
+            }}
+            className={clsx(
+              "px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 border",
+              activeTrackFilter === track
+                ? "bg-zinc-800 text-zinc-100 border-zinc-700 shadow-sm"
+                : "bg-transparent text-zinc-500 border-transparent hover:text-zinc-300 hover:bg-zinc-900/50"
+            )}
+          >
+            {track}
+          </button>
+        ))}
+      </div>
+
       <div className="space-y-3 relative">
         <AnimatePresence mode='popLayout'>
-          {teams.map((team, index) => {
+          {displayTeams.map((team, index) => {
             const isFirst = index === 0;
             const isSecond = index === 1;
             const isThird = index === 2;
@@ -401,6 +497,12 @@ function LeaderboardPage() {
             );
           })}
         </AnimatePresence>
+        
+        {displayTeams.length === 0 && !loading && (
+          <div className="py-12 text-center text-zinc-500">
+            No standings available for {activeTrackFilter} yet.
+          </div>
+        )}
       </div>
     </main>
   );
