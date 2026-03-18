@@ -10,6 +10,7 @@ import { QRCodeSVG } from 'qrcode.react';
 // --- MAIN APP COMPONENT (ROUTING) ---
 export default function App() {
   return (
+
     <BrowserRouter>
       <div className="min-h-screen bg-[#09090B] text-zinc-100 font-sans selection:bg-blue-500/30 relative">
         <nav className="bg-[#09090B]/80 backdrop-blur-md border-b border-zinc-800/80 sticky top-0 z-50">
@@ -77,6 +78,8 @@ function VotePage() {
   const [activeTrackFilter, setActiveTrackFilter] = useState('');
   
   const [activeQrTeam, setActiveQrTeam] = useState(null);
+
+  const [isVotingClosed,setIsVotingClosed] = useState(false);
   
   // ADDED: setSearchParams to update URL, and selectedTrack to read the URL
   const [searchParams, setSearchParams] = useSearchParams();
@@ -166,6 +169,8 @@ function VotePage() {
   if (loading) return <LoadingScreen />;
 
   return (
+
+    !isVotingClosed?(
     <main className="max-w-6xl mx-auto px-6 py-12 relative">
       <header className="mb-10 text-center space-y-3">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-zinc-100">
@@ -340,6 +345,11 @@ function VotePage() {
         )}
       </AnimatePresence>
     </main>
+    ):(
+      <div>
+        <p className='text-3xl font-white text-center mt-50'>Voting for Peoples Choice Award is Closed!</p>
+      </div>
+    )
   );
 }
 
