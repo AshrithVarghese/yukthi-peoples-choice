@@ -79,7 +79,7 @@ function VotePage() {
   
   const [activeQrTeam, setActiveQrTeam] = useState(null);
 
-  const [isVotingClosed,setIsVotingClosed] = useState(false);
+  const [isVotingClosed,setIsVotingClosed] = useState(true);
   
   // ADDED: setSearchParams to update URL, and selectedTrack to read the URL
   const [searchParams, setSearchParams] = useSearchParams();
